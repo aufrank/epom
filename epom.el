@@ -43,38 +43,74 @@ Defined using the relative timer specification for `run-at-time'.  Default is \"
   :group 'epom
   :type 'string)
 
+(defcustom epom-start-pom-message "Pomodoro started at"
+  "Message displayed after a new pomodoro is started.
+This message is followed by the time in HH:MM format."
+  :group 'epom
+  :type 'string)
+
+(defcustom epom-start-work-message "Work started at"
+  "Message displayed after the work section of a pomodoro is started.
+This message is followed by the time in HH:MM format."
+  :group 'epom
+  :type 'string)
+
+(defcustom epom-start-break-message "Break started at"
+  "Message displayed after the break section of a pomodoro is started.
+This message is followed by the time in HH:MM format."
+  :group 'epom
+  :type 'string)
+
+(defcustom epom-end-pom-message "Pomodoro completed at"
+  "Message displayed after a new pomodoro is completed.
+This message is followed by the time in HH:MM format."
+  :group 'epom
+  :type 'string)
+
+(defcustom epom-end-work-message "Work completed at"
+  "Message displayed after the work section of a pomodoro is completed.
+This message is followed by the time in HH:MM format."
+  :group 'epom
+  :type 'string)
+
+(defcustom epom-end-break-message "Break completed at"
+  "Message displayed after the break section of a pomodoro is completed.
+This message is followed by the time in HH:MM format."
+  :group 'epom
+  :type 'string)
+
 (defcustom epom-start-pom-hook
-  '((epom-display-time-message "Pomodoro started at"))
+  '((epom-display-start-pom-message))
   "Hook that is run after a new pomodoro is started."
   :group 'epom
   :type 'hook)
 
 (defcustom epom-start-work-hook
-  '((epom-display-time-message "Work started at"))
+  '((epom-display-start-work-message))
   "Hook that is run after the work portion of a pomodoro is started."
   :group 'epom
   :type 'hook)
 
 (defcustom epom-start-break-hook
-  '((epom-display-time-message "Break started at"))
+  '((epom-display-start-break-message))
   "Hook that is run after the break portion of a pomodoro is started."
   :group 'epom
   :type 'hook)
 
 (defcustom epom-end-pom-hook
-  '((epom-display-time-message "Pomodoro completed at"))
+  '((epom-display-end-pom-message))
   "Hook that is run after a pomodoro is completed."
   :group 'epom
   :type 'hook)
 
 (defcustom epom-end-work-hook
-  '((epom-display-time-message "Work completed at"))
+  '((epom-display-end-work-message))
   "Hook that is run after the work portion of a pomodoro is completed."
   :group 'epom
   :type 'hook)
 
 (defcustom epom-end-break-hook
-  '((epom-display-time-message "Break completed at"))
+  '((epom-display-end-break-message))
   "Hook that is run after the break portion of a pomodoro is completed."
   :group 'epom
   :type 'hook)
@@ -84,6 +120,30 @@ Defined using the relative timer specification for `run-at-time'.  Default is \"
   (message-or-box "%s %s"
                   msg
                   (substring (current-time-string) 11 16)))
+
+(defun epom-display-start-pom-message ()
+  "Displays the string in `epom-start-pom-message' followed by the time in HH:MM format."
+  (epom-display-time-message epom-start-pom-message))
+
+(defun epom-display-start-work-message ()
+  "Displays the string in `epom-start-work-message' followed by the time in HH:MM format."
+  (epom-display-time-message epom-start-pom-message))
+
+(defun epom-display-start-break-message ()
+  "Displays the string in `epom-start-break-message' followed by the time in HH:MM format."
+  (epom-display-time-message epom-start-pom-message))
+
+(defun epom-display-end-pom-message ()
+  "Displays the string in `epom-end-pom-message' followed by the time in HH:MM format."
+  (epom-display-time-message epom-end-pom-message))
+
+(defun epom-display-end-work-message ()
+  "Displays the string in `epom-end-work-message' followed by the time in HH:MM format."
+  (epom-display-time-message epom-end-pom-message))
+
+(defun epom-display-end-break-message ()
+  "Displays the string in `epom-end-break-message' followed by the time in HH:MM format."
+  (epom-display-time-message epom-end-pom-message))
 
 (defun epom-start-pom ()
   "Start a new pomodoro (work then break)."
