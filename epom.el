@@ -123,18 +123,24 @@ This message is followed by the time in HH:MM format."
   :group 'epom
   :type 'hook)
 
+;; options for logging epom actions
+(defcustom epom-log-hook)
+
+
 ;; utility function for printing message followed by time
 (defun epom-display-time-message (message &optional icon)
   "Display MSG, followed by the current time in HH:MM format.
-If available, use todochiku for notifications.  Otherwise, use heuristic to decide between the echo area or a message box.  See `message-or-box' for details."
+If available, use todochiku for notifications.  Otherwise, use
+heuristic to decide between the echo area or a message box.  See
+`message-or-box' for details."
   (let ((msg (format "%s  %s"
-                         message
-                         (substring (current-time-string) 11 16))))
-        (if (featurep 'todochiku)
-            (todochiku-message "epom"
-                               msg
-                               (todochiku-icon (or icon 'default)))
-          (message-or-box msg))))
+                     message
+                     (substring (current-time-string) 11 16))))
+    (if (featurep 'todochiku)
+        (todochiku-message "epom"
+                           msg
+                           (todochiku-icon (or icon 'default)))
+      (message-or-box msg))))
 
 ;; 0-ary functions for displaying messages with timestamps, default
 ;; action in corresponding hooks
