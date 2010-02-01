@@ -46,37 +46,37 @@ Defined using the relative timer specification for `run-at-time'.  Default is \"
   :type 'string)
 
 ;; text of status messages
-(defcustom epom-start-pom-message "Pomodoro started at"
+(defcustom epom-start-pom-message "Pomodoro started."
   "*Message displayed after a new pomodoro is started.
 This message is followed by the time in HH:MM format."
   :group 'epom
   :type 'string)
 
-(defcustom epom-start-work-message "Work started at"
+(defcustom epom-start-work-message "Work started."
   "*Message displayed after the work section of a pomodoro is started.
 This message is followed by the time in HH:MM format."
   :group 'epom
   :type 'string)
 
-(defcustom epom-start-break-message "Break started at"
+(defcustom epom-start-break-message "Break started."
   "*Message displayed after the break section of a pomodoro is started.
 This message is followed by the time in HH:MM format."
   :group 'epom
   :type 'string)
 
-(defcustom epom-stop-pom-message "Pomodoro completed at"
+(defcustom epom-stop-pom-message "Pomodoro completed."
   "*Message displayed after a new pomodoro is completed.
 This message is followed by the time in HH:MM format."
   :group 'epom
   :type 'string)
 
-(defcustom epom-stop-work-message "Work completed at"
+(defcustom epom-stop-work-message "Work completed."
   "*Message displayed after the work section of a pomodoro is completed.
 This message is followed by the time in HH:MM format."
   :group 'epom
   :type 'string)
 
-(defcustom epom-stop-break-message "Break completed at"
+(defcustom epom-stop-break-message "Break completed."
   "*Message displayed after the break section of a pomodoro is completed.
 This message is followed by the time in HH:MM format."
   :group 'epom
@@ -124,11 +124,17 @@ This message is followed by the time in HH:MM format."
   :type 'hook)
 
 ;; utility function for printing message followed by time
-(defun epom-display-time-message (msg)
-  "Display MSG in the echo area, followed by the current time in HH:MM format."
-  (message-or-box "%s %s"
-                  msg
-                  (substring (current-time-string) 11 16)))
+(defun epom-display-time-message (message &optional icon)
+  "Display MSG, followed by the current time in HH:MM format.
+If available, use todochiku for notifications.  Otherwise, use heuristic to decide between the echo area or a message box.  See `message-or-box' for details."
+  (let ((msg (format "%s  %s"
+                         message
+                         (substring (current-time-string) 11 16))))
+        (if (featurep 'todochiku)
+            (todochiku-message "epom"
+                               msg
+                               (todochiku-icon (or icon 'default)))
+          (message-or-box msg))))
 
 ;; 0-ary functions for displaying messages with timestamps, default
 ;; action in corresponding hooks
@@ -201,56 +207,6 @@ This message is followed by the time in HH:MM format."
   "Stop the work portion of a pomodoro."
   (run-hooks 'epom-stop-break-hook)
   (epom-stop-pom))
-
-;; integration with other modes / applications
-(defun epom-remove-hook (hook function)
-  "Remove FUNCTION from HOOK."
-  (remove-hook hook function))
-
-
-;; todochiku integration
-(defun epom-add-todochiku-hook (hook message icon)
-  "Add a todochiku notification to an existing epom hook."
-  (add-hook hook
-            (lambda ()
-              (todochiku-message "epom"
-                                 message
-                                 (todochiku-icon icon)))))
-
-(defun epom-insinuate-todochiku ()
-  "Use the notification functions from todochiku.el."
-  (mapc (lambda (args)
-          (let ((hook (car args))
-                (message (nth 1 args))
-                (icon (nth 2 args))
-                (old-function (nth 3 args)))
-            (epom-add-todochiku-hook hook message icon)
-            (epom-remove-hook hook old-function)))
-        '((epom-start-pom-hook
-           epom-start-pom-message
-           'alarm
-           epom-display-start-pom-message)
-          (epom-start-work-hook
-           epom-start-work-message
-           'alarm
-           epom-display-start-work-message)
-          (epom-start-break-hook
-           epom-start-break-message
-           'alarm
-           epom-display-start-break-message)
-          (epom-stop-pom-hook
-           epom-stop-pom-message
-           'check
-           epom-display-stop-pom-message)
-          (epom-stop-work-hook
-           epom-stop-work-message
-           'check
-           epom-display-stop-work-message)
-          (epom-stop-break-hook
-           epom-stop-break-message
-           'check
-           epom-display-stop-break-message))))
-
 
 (provide 'epom)
 ;;; epom.el ends here
