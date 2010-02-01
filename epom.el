@@ -224,13 +224,33 @@ This message is followed by the time in HH:MM format."
                 (message (nth 1 args))
                 (icon (nth 2 args))
                 (old-function (nth 3 args)))
-            (message "These are " hook message icon old-function)
             (epom-add-todochiku-hook hook message icon)
             (epom-remove-hook hook old-function)))
         '((epom-start-pom-hook
            epom-start-pom-message
-           'alert
-           epom-display-start-pom-message))))
+           'alarm
+           epom-display-start-pom-message)
+          (epom-start-work-hook
+           epom-start-work-message
+           'alarm
+           epom-display-start-work-message)
+          (epom-start-break-hook
+           epom-start-break-message
+           'alarm
+           epom-display-start-break-message)
+          (epom-stop-pom-hook
+           epom-stop-pom-message
+           'check
+           epom-display-stop-pom-message)
+          (epom-stop-work-hook
+           epom-stop-work-message
+           'check
+           epom-display-stop-work-message)
+          (epom-stop-break-hook
+           epom-stop-break-message
+           'check
+           epom-display-stop-break-message))))
+
 
 (provide 'epom)
 ;;; epom.el ends here
