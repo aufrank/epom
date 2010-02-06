@@ -40,38 +40,64 @@ seconds."
   :type '(alist :key-type symbol :value-type (group number)))
 
 (defvar epom-current-state nil
-  "The state corresponding to the current timer.")
+  "The state corresponding to `epom-current-timer'.")
+
+(defvar epom-current-timer nil
+  "The timer correspinding to `epom-current-state'.")
 
 (defvar epom-completed-states ()
   "States that have been completed.")
 
 ;; hooks to run at the beginning and end of each cycle
-(defcustom epom-state-begin-hook
+(defcustom epom-state-start-hook
   '(epom-set-current-state
-    epom-start-clock
-    epom-display-state-begin)
-  "Functions to run when a state begins.
-Each function takes an argument of STATE, and optionally an
-ICON."
+    epom-start-timer
+    epom-display-state-start)
+  "Functions to run when a state starts."
   :group 'epom
   :type 'hook)
 
-(defcustom epom-state-end-hook
-  '(epom-display-state-end
+(defcustom epom-state-stop-hook
+  '(epom-display-state-stop
     epom-complete-state
     epom-maybe-complete-cycle)
-  "Functions to run when a state ends.
-Each function takes an argument of STATE, and optionally an
-ICON."
+  "Functions to run when a state ends."
   :group 'epom
   :type 'hook)
 
+(defcustom epom-state-restart-hook
+  '(epom-stop-current-timer
+    epom-start-timer
+    epom-display-state-start)
+  "Functions to run when a state is restarted."
+  :group 'epom
+  :type 'hook)
+
+(defcustom epom-cycle-start-hook ()
+  "Extra functions to run after a cycle is started."
+  :group 'epom
+  :type 'hook)
+
+(defcustom epom-cycle-stop-hook ()
+  "Extra functions to run after a cycle is stopped."
+  :group 'epom
+  :type 'hook)
+
+(defcustom epom-cycle-restart-hook ()
+  "Extra functions to run after a cycle is restarted."
+  :group 'epom
+  :type 'hook)
+
+(defun epom-add-hook (hook function)
+  "Like `add-hook', except always append new FUNCTION to HOOK."
+  (add-hook hook function t))
+
 (defun epom-set-current-state nil
-  "Put the first element in the list of STATES into `epom-current-state'."
+  "Put the first element in `epom-states' into `epom-current-state'."
   (setq epom-current-state (pop epom-states)))
 
 (defun epom-complete-state nil
-  "Put current state into `epom-completed-states'."
+  "Put `epom-current-state' into `epom-completed-states'."
   (setq epom-completed-states
         (append epom-completed-states (list epom-current-state)))
   (setq epom-current-state nil))
@@ -81,21 +107,27 @@ ICON."
   (if epom-states t (setq epom-states epom-completed-states
                           epom-completed-states ())))
 
-(defun epom-start-clock nil
-  "Start a timer ending based on `epom-current-state'."
+(defun epom-start-timer nil
+  "Start a timer ending based on `epom-current-state', setting `epom-current-timer'."
   (let ((state (car epom-current-state))
         (duration (nth 1 epom-current-state)))
-    (run-at-time (* 60 duration) nil
-                 'run-hooks 'epom-state-end-hook)))
+    (setq epom-current-timer
+          (run-at-time (* 60 duration) nil
+                       'run-hooks 'epom-state-stop-hook))))
 
-(defun epom-display-state-begin nil
-  "Display a message when `epom-current-state' begins."
+(defun epom-stop-current-timer nil
+  "Stop `org-current-timer' and reset it to nil."
+  (cancel-timer epom-current-timer)
+  (setq epom-current-timer-nil))
+
+(defun epom-display-state-start nil
+  "Display a message when `epom-current-state' starts."
   (let ((state (car epom-current-state)))
     (epom-display-time-message
-     (format "%s %s." state "begins")
+     (format "%s %s." state "starts")
      'alarm)))
 
-(defun epom-display-state-end nil
+(defun epom-display-state-stop nil
   "Display a message when `epom-current-state' ends."
   (let ((state (car epom-current-state)))
     (epom-display-time-message
@@ -119,24 +151,38 @@ or a message box.  See `message-or-box' for details."
 
 ;; user functions for starting, stopping, and restarting pomodoro
 ;; cycles
-(defun epom-start-pom ()
+(defun epom-start-cycle ()
   "Start a new pomodoro (work then break)."
   (interactive)
-  (run-hooks 'epom-start-pom-hook)
+  (run-hooks 'epom-start-cycle-hook)
   (epom-start-work))
 
-(defun epom-cancel-pom ()
-  "Cancel the current pomodoro."
+(defun epom-stop-cycle ()
+  "Stop the current pomodoro."
   (interactive)
-  (run-hooks 'epom-cancel-pom-hook)
-  (epom-stop-pom))
+  (run-hooks 'epom-stop-cycle-hook)
+  (epom-stop-cycle))
 
-(defun epom-restart-pom ()
-  "Cancel the current pomodoro and start another."
+(defun epom-restart-cycle ()
+  "Stop the current pomodoro and start another."
   (interactive)
-  (run-hooks 'epom-restart-pom-hook)
-  (epom-cancel-pom)
-  (epom-start-pom))
+  (run-hooks 'epom-restart-cycle-hook)
+  (epom-stop-cycle)
+  (epom-start-cycle))
+
+;; user functions for advancing and restarting pomodoro states
+(defun epom-next-state nil
+  "Stop `epom-current-timer', ending `epom-current-state'; move to the next element of `epom-states'."
+  (interactive)
+  (cancel-timer epom-current-timer)
+  (run-hooks 'epom-state-stop-hook)
+  (run-hooks 'epom-state-start-hook))
+
+(defun epom-restart-state nil
+  "Restart `epom-current-state'."
+  (interactive)
+  (cancel-timer epom-current-timer)
+  (run-hooks 'epom-state-restart-hook))
 
 (provide 'epom)
 ;;; epom.el ends here
