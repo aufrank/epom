@@ -25,114 +25,89 @@
 ;; todochiku, and magit
 
 ;;; Code:
-
 ;; customization options
 (defgroup epom nil
   "Customization options for epom, Pomodoro time management in emacs."
   :group 'applications)
 
-;; duration of work/break cycles
-(defcustom epom-work-duration "25 min"
-  "*Duration of the work portion of a pomodoro.
-Defined using the relative timer specification for `run-at-time'.  Default is
-\"25 min\"."
+;; definition of cycles
+(defcustom epom-states '((work .5)
+                         (break .25))
+  "List of states and their durations.
+The name of the state is a symbol, the duration is specified in
+seconds."
   :group 'epom
-  :type 'string)
+  :type '(alist :key-type symbol :value-type (group number)))
 
-(defcustom epom-break-duration "5 min"
-  "*Duration of the break portion of a pomodoro.
-Defined using the relative timer specification for `run-at-time'.  Default is \"5 min\"."
-  :group 'epom
-  :type 'string)
+(defvar epom-current-state nil
+  "The state corresponding to the current timer.")
 
-;; text of status messages
-(defcustom epom-start-pom-message "Pomodoro started."
-  "*Message displayed after a new pomodoro is started.
-This message is followed by the time in HH:MM format."
-  :group 'epom
-  :type 'string)
+(defvar epom-completed-states ()
+  "States that have been completed.")
 
-(defcustom epom-start-work-message "Work started."
-  "*Message displayed after the work section of a pomodoro is started.
-This message is followed by the time in HH:MM format."
-  :group 'epom
-  :type 'string)
-
-(defcustom epom-start-break-message "Break started."
-  "*Message displayed after the break section of a pomodoro is started.
-This message is followed by the time in HH:MM format."
-  :group 'epom
-  :type 'string)
-
-(defcustom epom-stop-pom-message "Pomodoro completed."
-  "*Message displayed after a new pomodoro is completed.
-This message is followed by the time in HH:MM format."
-  :group 'epom
-  :type 'string)
-
-(defcustom epom-stop-work-message "Work completed."
-  "*Message displayed after the work section of a pomodoro is completed.
-This message is followed by the time in HH:MM format."
-  :group 'epom
-  :type 'string)
-
-(defcustom epom-stop-break-message "Break completed."
-  "*Message displayed after the break section of a pomodoro is completed.
-This message is followed by the time in HH:MM format."
-  :group 'epom
-  :type 'string)
-
-;; hooks to run functions before and after each step of the cycle
-(defcustom epom-start-pom-hook 'epom-display-start-pom-message
-  "*Hook that is run after a new pomodoro is started."
+;; hooks to run at the beginning and end of each cycle
+(defcustom epom-state-begin-hook
+  '(epom-set-current-state
+    epom-start-clock
+    epom-display-state-begin)
+  "Functions to run when a state begins.
+Each function takes an argument of STATE, and optionally an
+ICON."
   :group 'epom
   :type 'hook)
 
-(defcustom epom-start-work-hook 'epom-display-start-work-message
-  "*Hook that is run after the work portion of a pomodoro is started."
+(defcustom epom-state-end-hook
+  '(epom-display-state-end
+    epom-complete-state
+    epom-maybe-complete-cycle)
+  "Functions to run when a state ends.
+Each function takes an argument of STATE, and optionally an
+ICON."
   :group 'epom
   :type 'hook)
 
-(defcustom epom-start-break-hook 'epom-display-start-break-message
-  "*Hook that is run after the break portion of a pomodoro is started."
-  :group 'epom
-  :type 'hook)
+(defun epom-set-current-state nil
+  "Put the first element in the list of STATES into `epom-current-state'."
+  (setq epom-current-state (pop epom-states)))
 
-(defcustom epom-stop-pom-hook 'epom-display-stop-pom-message
-  "*Hook that is run after a pomodoro is completed."
-  :group 'epom
-  :type 'hook)
+(defun epom-complete-state nil
+  "Put current state into `epom-completed-states'."
+  (setq epom-completed-states
+        (append epom-completed-states (list epom-current-state)))
+  (setq epom-current-state nil))
 
-(defcustom epom-stop-work-hook 'epom-display-stop-work-message
-  "*Hook that is run after the work portion of a pomodoro is completed."
-  :group 'epom
-  :type 'hook)
+(defun epom-maybe-complete-cycle nil
+  "Refill `epom-states' from `epom-completed-states' if necessary."
+  (if epom-states t (setq epom-states epom-completed-states
+                          epom-completed-states ())))
 
-(defcustom epom-stop-break-hook 'epom-display-stop-break-message
-  "*Hook that is run after the break portion of a pomodoro is completed."
-  :group 'epom
-  :type 'hook)
+(defun epom-start-clock nil
+  "Start a timer ending based on `epom-current-state'."
+  (let ((state (car epom-current-state))
+        (duration (nth 1 epom-current-state)))
+    (run-at-time (* 60 duration) nil
+                 'run-hooks 'epom-state-end-hook)))
 
-(defcustom epom-cancel-pom-hook nil
-  "*Hook that is run after a pomodoro is canceled."
-  :group 'epom
-  :type 'hook)
+(defun epom-display-state-begin nil
+  "Display a message when `epom-current-state' begins."
+  (let ((state (car epom-current-state)))
+    (epom-display-time-message
+     (format "%s %s." state "begins")
+     'alarm)))
 
-(defcustom epom-restart-pom-hook nil
-  "*Hook that is run after a pomodoro is restarted."
-  :group 'epom
-  :type 'hook)
-
-;; options for logging epom actions
-(defcustom epom-log-hook)
-
+(defun epom-display-state-end nil
+  "Display a message when `epom-current-state' ends."
+  (let ((state (car epom-current-state)))
+    (epom-display-time-message
+     (format "%s %s." state "ends"))
+    'check))
 
 ;; utility function for printing message followed by time
 (defun epom-display-time-message (message &optional icon)
-  "Display MSG, followed by the current time in HH:MM format.
-If available, use todochiku for notifications.  Otherwise, use
-heuristic to decide between the echo area or a message box.  See
-`message-or-box' for details."
+  "Display MESSAGE, followed by the current time in HH:MM format.
+If available, use todochiku for notifications (with appropriate
+ICON).  Otherwise, use heuristic to decide between the echo area
+or a message box.  See `message-or-box' for details."
   (let ((msg (format "%s  %s"
                      message
                      (substring (current-time-string) 11 16))))
@@ -141,32 +116,6 @@ heuristic to decide between the echo area or a message box.  See
                            msg
                            (todochiku-icon (or icon 'default)))
       (message-or-box msg))))
-
-;; 0-ary functions for displaying messages with timestamps, default
-;; action in corresponding hooks
-(defun epom-display-start-pom-message ()
-  "Displays the string in `epom-start-pom-message' followed by the time in HH:MM format."
-  (epom-display-time-message epom-start-pom-message))
-
-(defun epom-display-start-work-message ()
-  "Displays the string in `epom-start-work-message' followed by the time in HH:MM format."
-  (epom-display-time-message epom-start-work-message))
-
-(defun epom-display-start-break-message ()
-  "Displays the string in `epom-start-break-message' followed by the time in HH:MM format."
-  (epom-display-time-message epom-start-break-message))
-
-(defun epom-display-stop-pom-message ()
-  "Displays the string in `epom-stop-pom-message' followed by the time in HH:MM format."
-  (epom-display-time-message epom-stop-pom-message))
-
-(defun epom-display-stop-work-message ()
-  "Displays the string in `epom-stop-work-message' followed by the time in HH:MM format."
-  (epom-display-time-message epom-stop-work-message))
-
-(defun epom-display-stop-break-message ()
-  "Displays the string in `epom-stop-break-message' followed by the time in HH:MM format."
-  (epom-display-time-message epom-stop-break-message))
 
 ;; user functions for starting, stopping, and restarting pomodoro
 ;; cycles
@@ -188,31 +137,6 @@ heuristic to decide between the echo area or a message box.  See
   (run-hooks 'epom-restart-pom-hook)
   (epom-cancel-pom)
   (epom-start-pom))
-
-;; functions that implement the Pomodoro work/break cycle
-(defun epom-start-work ()
-  "Start the work portion of a pomodoro."
-  (run-hooks 'epom-start-work-hook)
-  (run-at-time epom-work-duration () 'epom-stop-work))
-
-(defun epom-start-break ()
-  "Start the break portion of a pomodoro."
-  (run-hooks 'epom-start-break-hook)
-  (run-at-time epom-break-duration () 'epom-stop-break))
-
-(defun epom-stop-pom ()
-  "Stop a pomodoro (work and break)."
-  (run-hooks 'epom-stop-pom-hook))
-
-(defun epom-stop-work ()
-  "Stop the work portion of a pomodoro."
-  (run-hooks 'epom-stop-work-hook)
-  (epom-start-break))
-
-(defun epom-stop-break ()
-  "Stop the work portion of a pomodoro."
-  (run-hooks 'epom-stop-break-hook)
-  (epom-stop-pom))
 
 (provide 'epom)
 ;;; epom.el ends here
