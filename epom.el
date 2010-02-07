@@ -192,8 +192,8 @@ Usually used after `epom-stop-cycle'."
   "Display a message when `epom-state' ends."
   (let ((state (car epom-state)))
     (epom-display-time-message
-     (format "%s %s." state "ends"))
-    'check))
+     (format "%s %s." state "ends")
+    'check)))
 
 (defun epom-display-time-message (message &optional icon)
   "Display MESSAGE, followed by the current time in HH:MM format.
