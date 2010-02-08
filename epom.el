@@ -167,7 +167,7 @@ Usually used after `epom-stop-cycle'."
   (interactive)
   (if epom-timer
       (epom-stop-timer))
-  (epom-display-step-message epom-step-start-message)
+  (epom-display-step-message epom-step-stop-message)
   (epom-complete-step)
   (epom-advance-step)
   (run-hooks 'epom-step-stop-hook))
@@ -209,8 +209,13 @@ Usually used after `epom-stop-cycle'."
          (step-msg (car (last epom-step)))
          (msg-format (if (not (string= "" step-msg))
                          step-msg
-                       epom-message-format)))
-    (format msg-format step event-msg time)))
+                       epom-message-format))
+         (msg (format msg-format step event-msg time)))
+    (cond ((fboundp 'org-notify)
+           (org-notify msg))
+          ((fboundp 'todochiku-message)
+           (todochiku-message "epom" msg (todochiku-icon 'check)))          
+          (t (message-or-box msg)))))
 
 (provide 'epom)
 ;;; epom.el ends here
