@@ -25,43 +25,64 @@
 ;; todochiku, and magit
 
 ;;; Code:
-;; variables for internal use, store and manage cycles and states
-(defvar epom-state nil
-  "The state corresponding to `epom-timer'.")
+;; variables for internal use, store and manage cycles and steps
+(defvar epom-step nil
+  "The step corresponding to `epom-timer'.")
 
 (defvar epom-timer nil
-  "The timer correspinding to `epom-state'.")
+  "The timer correspinding to `epom-step'.")
 
-(defvar epom-completed-states ()
-  "States that have been completed.")
+(defvar epom-completed-steps ()
+  "Steps that have been completed.")
 
 ;; customization options
 (defgroup epom nil
   "Customization options for epom, Pomodoro time management in emacs."
   :group 'applications)
 
-;; definition of cycles
-(defcustom epom-states '((work .5)
-                         (break .25))
-  "List of states and their durations.
-The name of the state is a symbol, the duration is specified in
-seconds."
+;; default format of notifications
+(defcustom epom-message-format "%s %s.  %s."
+  "Default format of notifications.
+A format string as described in `format'.  Three arguments can be
+interpolated into the string:  the name of the step, a message about the event, and the time of the notification."
   :group 'epom
-  :type '(alist :key-type symbol :value-type (group number)))
+  :type 'string)
+
+(defcustom epom-step-start-message "starts"
+  "String to interpolate into `epom-message-format' as the second argument when a step starts."
+  :group 'epom
+  :type 'string)
+
+(defcustom epom-step-stop-message "ends"
+  "String to interpolate into `epom-message-format' as the second argument when a step stops."
+  :group 'epom
+  :type 'string)
+
+;; definition of cycles
+(defcustom epom-steps '((work .5 "")
+                        (break .25 ""))
+  "An alist of steps, their durations, and notification messsages.
+The name of the step is a symbol.
+The duration is specified as a number of minutes.
+The message format is a format string.  See `epom-message-format' for more information."
+  :group 'epom
+  :type '(alist :key-type symbol
+                :value-type (list (number :tag "Duration")
+                                  (string :tag "Message format"))))
 
 ;; hooks to run at the beginning and end of each cycle
-(defcustom epom-state-start-hook ()
-  "Functions to run after a state starts."
+(defcustom epom-step-start-hook ()
+  "Functions to run after a step starts."
   :group 'epom
   :type 'hook)
 
-(defcustom epom-state-stop-hook ()
-  "Functions to run when a state ends."
+(defcustom epom-step-stop-hook ()
+  "Functions to run when a step ends."
   :group 'epom
   :type 'hook)
 
-(defcustom epom-state-restart-hook ()
-  "Functions to run when a state is restarted."
+(defcustom epom-step-restart-hook ()
+  "Functions to run when a step is restarted."
   :group 'epom
   :type 'hook)
 
@@ -80,40 +101,40 @@ seconds."
   :group 'epom
   :type 'hook)
 
-;; functions for starting, stopping, and manipulating states
-(defun epom-get-next-state nil
-  "Pop the first element of `epom-states' into `epom-state'."
-  (setq epom-state (pop epom-states)))
+;; functions for starting, stopping, and manipulating steps
+(defun epom-get-next-step nil
+  "Pop the first element of `epom-steps' into `epom-step'."
+  (setq epom-step (pop epom-steps)))
 
-(defun epom-complete-state nil
-  "Put `epom-state' into `epom-completed-states'."
-  (setq epom-completed-states
-        (append epom-completed-states (list epom-state))
-        epom-state nil))
+(defun epom-complete-step nil
+  "Put `epom-step' into `epom-completed-steps'."
+  (setq epom-completed-steps
+        (append epom-completed-steps (list epom-step))
+        epom-step nil))
 
-(defun epom-reset-states nil
-  (setq epom-states (append epom-completed-states epom-states)
-        epom-completed-states ()))
+(defun epom-reset-steps nil
+  (setq epom-steps (append epom-completed-steps epom-steps)
+        epom-completed-steps ()))
 
 ;; user functions for starting, stopping, and restarting cycles
 (defun epom-start-cycle ()
   "Start a new cycle."
   (interactive)
-  (epom-reset-states)
-  (epom-advance-state)
+  (epom-reset-steps)
+  (epom-advance-step)
   (run-hooks 'epom-cycle-start-hook))
 
 (defun epom-stop-cycle ()
   "Stop the current cycle."
   (interactive)
-  (epom-stop-state)
+  (epom-stop-step)
   (run-hooks 'epom-cycle-stop-hook))
 
 (defun epom-resume-cycle ()
-  "Resume the current-cycle, starting with `epom-state' (restarts `epom-timer').
+  "Resume the current-cycle, starting with `epom-step' (restarts `epom-timer').
 Usually used after `epom-stop-cycle'."
   (interactive)
-  (epom-start-state)
+  (epom-start-step)
   (run-hooks 'epom-cycle-resume-hook))
 
 (defun epom-restart-cycle ()
@@ -124,56 +145,56 @@ Usually used after `epom-stop-cycle'."
   (run-hooks 'epom-cycle-restart-hook))
 
 (defun epom-cancel-cycle ()
-  "Stop the current cycle and reset `epom-states'."
+  "Stop the current cycle and reset `epom-steps'."
   (interactive)
   (epom-stop-cycle)
-  (epom-reset-states)
+  (epom-reset-steps)
   (run-hooks 'epom-cycle-cancel-hook))
 
-;; user functions for advancing and restarting pomodoro states
-(defun epom-start-state nil
-  "Start `epom-state', stopping an existing timer if necessary."
+;; user functions for advancing and restarting pomodoro steps
+(defun epom-start-step nil
+  "Start `epom-step', stopping an existing timer if necessary."
   (interactive)
-  ;; if we're already running a state, stop it
+  ;; if we're already running a step, stop it
   (if epom-timer
-      (epom-stop-state))
-  (epom-display-state-start)
+      (epom-stop-step))
+  (epom-display-step-message epom-step-start-message)
   (epom-start-timer)
-  (run-hooks 'epom-state-start-hook))
+  (run-hooks 'epom-step-start-hook))
 
-(defun epom-stop-state nil
-  "Stop `epom-timer', ending `epom-state'."
+(defun epom-stop-step nil
+  "Stop `epom-timer', ending `epom-step'."
   (interactive)
   (if epom-timer
       (epom-stop-timer))
-  (epom-display-state-stop)
-  (epom-complete-state)
-  (epom-advance-state)
-  (run-hooks 'epom-state-stop-hook))
+  (epom-display-step-message epom-step-start-message)
+  (epom-complete-step)
+  (epom-advance-step)
+  (run-hooks 'epom-step-stop-hook))
 
-(defun epom-restart-state nil
-  "Restart `epom-timer', corresponding to `epom-state'."
+(defun epom-restart-step nil
+  "Restart `epom-timer', corresponding to `epom-step'."
   (interactive)
-  (epom-stop-state)
-  (epom-start-state)
-  (run-hooks 'epom-state-restart-hook))
+  (epom-stop-step)
+  (epom-start-step)
+  (run-hooks 'epom-step-restart-hook))
 
-(defun epom-advance-state nil
-  "Stop `epom-timer', ending `epom-state'; move to the next element of `epom-states'."
+(defun epom-advance-step nil
+  "Stop `epom-timer', ending `epom-step'; move to the next element of `epom-steps'."
   (interactive)
-  (if epom-states
-      (progn (epom-get-next-state)
-             (epom-start-state))
-    (epom-reset-states)))
+  (if epom-steps
+      (progn (epom-get-next-step)
+             (epom-start-step))
+    (epom-reset-steps)))
 
 ;; functions for starting and stopping timers
 (defun epom-start-timer nil
-  "Start a timer ending based on `epom-state', setting `epom-timer'."
-  (let ((state (car epom-state))
-        (duration (nth 1 epom-state)))
+  "Start a timer ending based on `epom-step', setting `epom-timer'."
+  (let ((step (car epom-step))
+        (duration (nth 1 epom-step)))
     (setq epom-timer
           (run-at-time (* 60 duration) nil
-                       'epom-stop-state))))
+                       'epom-stop-step))))
 
 (defun epom-stop-timer nil
   "Stop `epom-timer' and reset it to nil."
@@ -181,33 +202,15 @@ Usually used after `epom-stop-cycle'."
   (setq epom-timer nil))
 
 ;; functions for user notifications
-(defun epom-display-state-start nil
-  "Display a message when `epom-state' starts."
-  (let ((state (car epom-state)))
-    (epom-display-time-message
-     (format "%s %s." state "starts")
-     'alarm)))
-
-(defun epom-display-state-stop nil
-  "Display a message when `epom-state' ends."
-  (let ((state (car epom-state)))
-    (epom-display-time-message
-     (format "%s %s." state "ends")
-    'check)))
-
-(defun epom-display-time-message (message &optional icon)
-  "Display MESSAGE, followed by the current time in HH:MM format.
-If available, use todochiku for notifications (with appropriate
-ICON).  Otherwise, use heuristic to decide between the echo area
-or a message box.  See `message-or-box' for details."
-  (let ((msg (format "%s  %s"
-                     message
-                     (substring (current-time-string) 11 16))))
-    (if (featurep 'todochiku)
-        (todochiku-message "epom"
-                           msg
-                           (todochiku-icon (or icon 'default)))
-      (message-or-box msg))))
+(defun epom-display-step-message (event-msg)
+  "Display `epom-step', EVENT-MSG, and `current-time-string', using `epom-message-format'."
+  (let* ((step (car epom-step))
+         (time (current-time-string))
+         (step-msg (car (last epom-step)))
+         (msg-format (if (not (string= "" step-msg))
+                         step-msg
+                       epom-message-format)))
+    (format msg-format step event-msg time)))
 
 (provide 'epom)
 ;;; epom.el ends here
