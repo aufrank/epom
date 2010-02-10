@@ -59,7 +59,7 @@ interpolated into the string:  the name of the step, a message about the event, 
   :type 'string)
 
 ;; definition of cycles
-(defcustom epom-steps '((work .5 "")
+(defcustom epom-cycle '((work .5 "")
                         (break .25 ""))
   "An alist of steps, their durations, and notification messsages.
 The name of the step is a symbol.
@@ -69,6 +69,9 @@ The message format is a format string.  See `epom-message-format' for more infor
   :type '(alist :key-type symbol
                 :value-type (list (number :tag "Duration")
                                   (string :tag "Message format"))))
+
+(defvar epom-remaining-cycle epom-cycle
+  "Temporary variable to hold the current instantiation of `epom-cycle'.")
 
 ;; hooks to run at the beginning and end of each cycle
 (defcustom epom-step-start-hook ()
@@ -103,8 +106,8 @@ The message format is a format string.  See `epom-message-format' for more infor
 
 ;; functions for starting, stopping, and manipulating steps
 (defun epom-get-next-step nil
-  "Pop the first element of `epom-steps' into `epom-step'."
-  (setq epom-step (pop epom-steps)))
+  "Pop the first element of `epom-remaining-cycle' into `epom-step'."
+  (setq epom-step (pop epom-remaining-cycle)))
 
 (defun epom-complete-step nil
   "Put `epom-step' into `epom-completed-steps'."
@@ -112,15 +115,17 @@ The message format is a format string.  See `epom-message-format' for more infor
         (append epom-completed-steps (list epom-step))
         epom-step nil))
 
-(defun epom-reset-steps nil
-  (setq epom-steps (append epom-completed-steps epom-steps)
-        epom-completed-steps ()))
+(defun epom-reset-cycle nil
+  "Reset `epom-remaining-cycle' to the original value of `epom-cycle'; unset `org-step'."
+  (setq epom-remaining-cycle epom-cycle
+        epom-step nil
+        epom-completed-steps '()))
 
 ;; user functions for starting, stopping, and restarting cycles
 (defun epom-start-cycle ()
   "Start a new cycle."
   (interactive)
-  (epom-reset-steps)
+  (epom-reset-cycle)
   (epom-advance-step)
   (run-hooks 'epom-cycle-start-hook))
 
@@ -145,10 +150,10 @@ Usually used after `epom-stop-cycle'."
   (run-hooks 'epom-cycle-restart-hook))
 
 (defun epom-cancel-cycle ()
-  "Stop the current cycle and reset `epom-steps'."
+  "Stop the current cycle and reset `epom-cycle'."
   (interactive)
   (epom-stop-cycle)
-  (epom-reset-steps)
+  (epom-reset-cycle)
   (run-hooks 'epom-cycle-cancel-hook))
 
 ;; user functions for advancing and restarting pomodoro steps
@@ -180,12 +185,12 @@ Usually used after `epom-stop-cycle'."
   (run-hooks 'epom-step-restart-hook))
 
 (defun epom-advance-step nil
-  "Stop `epom-timer', ending `epom-step'; move to the next element of `epom-steps'."
+  "Stop `epom-timer', ending `epom-step'; move to the next element of `epom-remaining-cycle'."
   (interactive)
-  (if epom-steps
+  (if epom-remaining-cycle
       (progn (epom-get-next-step)
              (epom-start-step))
-    (epom-reset-steps)))
+    (epom-reset-cycle)))
 
 ;; functions for starting and stopping timers
 (defun epom-start-timer nil
