@@ -207,20 +207,27 @@ Usually used after `epom-stop-cycle'."
   (setq epom-timer nil))
 
 ;; functions for user notifications
-(defun epom-display-step-message (event-msg)
+(defun epom-display-step-message (event-msg &optional event-format)
   "Display `epom-step', EVENT-MSG, and `current-time-string', using `epom-message-format'."
   (let* ((step (car epom-step))
          (time (current-time-string))
          (step-msg (car (last epom-step)))
-         (msg-format (if (not (string= "" step-msg))
-                         step-msg
-                       epom-message-format))
+         (msg-format (cond ((not (string= "" step-msg))
+                            step-msg)
+                           (event-format event-format)
+                           (t epom-message-format)))
          (msg (format msg-format step event-msg time)))
     (cond ((fboundp 'org-notify)
            (org-notify msg))
           ((fboundp 'todochiku-message)
            (todochiku-message "epom" msg (todochiku-icon 'check)))          
           (t (message-or-box msg)))))
+
+(defun epom-display-end-time ()
+  (let ((end-time
+         (current-time-string
+          (mapcar '(lambda (n) (aref epom-timer n)) '(1 2 3)))))
+    (epom-display-step-message "ends at" "%s %s %s.")))
 
 (provide 'epom)
 ;;; epom.el ends here
