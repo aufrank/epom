@@ -59,8 +59,8 @@ interpolated into the string:  the name of the step, a message about the event, 
   :type 'string)
 
 ;; definition of cycles
-(defcustom epom-cycle '((work .5 "")
-                        (break .25 ""))
+(defcustom epom-cycle '((work 25 "")
+                        (break 5 ""))
   "An alist of steps, their durations, and notification messsages.
 The name of the step is a symbol.
 The duration is specified as a number of minutes.
