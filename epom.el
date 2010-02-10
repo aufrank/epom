@@ -80,12 +80,12 @@ The message format is a format string.  See `epom-message-format' for more infor
   :type 'hook)
 
 (defcustom epom-step-stop-hook ()
-  "Functions to run when a step ends."
+  "Functions to run before a step ends."
   :group 'epom
   :type 'hook)
 
 (defcustom epom-step-restart-hook ()
-  "Functions to run when a step is restarted."
+  "Functions to run after a step is restarted."
   :group 'epom
   :type 'hook)
 
@@ -95,7 +95,7 @@ The message format is a format string.  See `epom-message-format' for more infor
   :type 'hook)
 
 (defcustom epom-cycle-stop-hook ()
-  "Extra functions to run after a cycle is stopped."
+  "Extra functions to run before a cycle is stopped."
   :group 'epom
   :type 'hook)
 
@@ -132,8 +132,8 @@ The message format is a format string.  See `epom-message-format' for more infor
 (defun epom-stop-cycle ()
   "Stop the current cycle."
   (interactive)
-  (epom-stop-step)
-  (run-hooks 'epom-cycle-stop-hook))
+  (run-hooks 'epom-cycle-stop-hook)
+  (epom-stop-step))
 
 (defun epom-resume-cycle ()
   "Resume the current-cycle, starting with `epom-step' (restarts `epom-timer').
