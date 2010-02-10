@@ -224,10 +224,11 @@ Usually used after `epom-stop-cycle'."
           (t (message-or-box msg)))))
 
 (defun epom-display-end-time ()
-  (let ((end-time
-         (current-time-string
-          (mapcar '(lambda (n) (aref epom-timer n)) '(1 2 3)))))
-    (epom-display-step-message "ends at" "%s %s %s.")))
+  (if epom-timer
+      (let ((end-time
+             (current-time-string
+              (mapcar '(lambda (n) (aref epom-timer n)) '(1 2 3)))))
+        (epom-display-step-message "will end at" "%s %s %s."))))
 
 (provide 'epom)
 ;;; epom.el ends here
